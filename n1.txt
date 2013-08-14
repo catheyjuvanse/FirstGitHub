@@ -1,0 +1,57 @@
+trigger UpdatePartCount on Inventory_Transaction__c (after insert,after update) {
+ List<Inventory_Transaction__c>  InvListNew=System.Trigger.new;
+  
+ List<String> PartIDList=new List<String>();
+ List<Part__c> PartListupdate=new List<Part__c>();
+ String Transaction='';
+ for(Inventory_Transaction__c   InventoryTransaction : InvListNew)
+ {
+     PartIDList.add(InventoryTransaction.Part_Number__c);
+    Transaction=InventoryTransaction.Transaction__c;
+ }
+  List<Part__c> PartList=[Select id,name from Part__c where id in PartIDList]  ;
+  List<AggregateResult> Result1=[Select sum(Quantity__c) s1,Part_Number__c from Inventory_Transaction__c   
+                               where Part_Number__c in :PartIDList
+                               and Transaction__c='Stocking' and Transaction_Status__c='Part Stocked' 
+                               group by Part_Number__c,Transaction__c ];
+  List<AggregateResult> Result2=[Select sum(Quantity__c) s1,Part_Number__c from Inventory_Transaction__c   
+                               where Part_Number__c in :PartIDList
+                               and Transaction__c='Picking' and Transaction_Status__c='Part Picked' 
+                               group by Part_Number__c,Transaction__c ];
+ for(Part__c  PP: PartList)
+ {
+ Decimal Quantity1,Quantity2;
+ Quantity1=0;
+ Quantity2=0;
+ for(AggregateResult ar1:Result1)
+ {
+     if(PP.id==ar1.get('Part_Number__c')
+     {
+         Quantity1=(Decimal)ar1.get('s1');
+     }    
+ }
+ for(AggregateResult ar2:Result2)
+ {
+     if(PP.id==ar2.get('Part_Number__c')
+     {
+         Quantity2=(Decimal)ar2.get('s1');
+     }    
+ }
+  PP.Total_Units_Received__c=Quantity1;
+  PP.Total_Units_Dispatched__c=Quantity2;
+  if(Quantity1-Quantity2>0)
+    {
+        PartListupdate.add(PP);
+    }else
+    {
+          if(Transaction=='Picking')
+         {
+            InventoryTransaction.addError('Quanity Picked should be greater than Stock Level!!')  ;
+         }
+    }
+    
+   
+ 
+}
+ update PartListupdate;
+ }
